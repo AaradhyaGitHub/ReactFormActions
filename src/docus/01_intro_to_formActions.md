@@ -81,93 +81,109 @@ function signupAction(formData) {
 
 ---
 
-# **Intro to useActionState Hook**
+# **Intro to useActionState hook**
 
-Now, we have an `errors` array in the action form that we need to access somehow.
-
-## **Understanding `useActionState`**
-
-The `useActionState` hook is designed to work with form actions. It helps us manage the form’s state, handle errors, and track whether the form is currently submitting.
-
-### **First Parameter: The Action Function**
-
-The first argument we pass to `useActionState` is our action function, which handles form submission.
+Now, we have an errors array in the action form that we need to access somehow.
+useActionState hook wants an action function as a first parameter:
 
 ```jsx
 useActionState(signupAction);
 ```
 
-By providing this function, React can enhance it behind the scenes, allowing us to better manage the form’s state.
-
-### **Second Parameter: The Initial State**
-
-The second argument is the initial state object for the form:
+This hook works with form actions. The second parameter is an initial state value:
 
 ```jsx
 useActionState(signupAction, { errors: null });
 ```
 
-This is similar to how `useState` works—this object holds our form's initial state, such as error messages.
+Like `useState`, `useActionState` returns an array. But it returns 3 elements:
 
-### **What Does `useActionState` Return?**
+1. **Current form state** -> Initially the initial state (2nd argument), then the state returned by the action.
+2. **Updated formAction** -> Our form action with extra enhancement:
+   - We pass the action function as the first argument to `useActionState`.
+   - React creates a new function to wrap around this function.
+   - This is the `formAction` that we then later pass to `action` on the form element.
+3. **Pending** -> `true` or `false`
+   - Depending on whether the form is currently being submitted or not.
+   - More useful when we deal with asynchronous programming.
 
-Unlike `useState`, which returns two values, `useActionState` returns an **array with three elements**:
-
-1. **Current Form State**
-   - Initially, this is the **initial state** (the second argument passed to `useActionState`).
-   - Once the action function executes, this state gets updated with the returned value from the action.
-
-2. **Updated Form Action**
-   - `useActionState` wraps the provided action function and creates an enhanced version of it.
-   - This is necessary because React ensures that form state updates correctly through this function.
-   - We pass this enhanced function to the `action` attribute of the form.
-
-3. **Pending State**
-   - A boolean (`true` or `false`) indicating if the form is currently submitting.
-   - Useful when dealing with asynchronous operations (e.g., showing a loading indicator while submitting).
-
-## **Using `useActionState` in Practice**
-
-To set up the hook:
+### **Setting up the hook:**
 
 ```jsx
 const [formState, formAction] = useActionState(signupAction, { errors: null });
 ```
 
-Here:
-- `formState` holds the current form state (starting with `{ errors: null }`).
-- `formAction` is the enhanced version of `signupAction` that we use in our `<form>`.
-
-## **Updating the Action Function**
-
-When using `useActionState`, we need to modify our original action function to accept **two parameters**:
+We also now need to change our original action function to accept 2 parameters:
 
 ```jsx
-function signupAction(prevFormState, formData) {
-  // Handle form submission logic here
-}
+function signupAction(prevFormState, formData) {...}
 ```
 
-### **Why Do We Need Two Parameters?**
-
-Using just the `formData` object is not enough because we also need access to the previous form state. This allows us to:
-- Retain and update error messages.
-- Maintain additional form-related data.
-- Ensure the form state is correctly updated after submission.
-
-## **Using `formState` in JSX**
-
-Now, we can extract information from `formState` and display error messages dynamically:
+But now, we can extract info from this hook and use it in our JSX:
 
 ```jsx
 {
-  formState.errors && (
-    <ul>
-      {formState.errors.map(error => (
-        <li key={error}>{error}</li>
-      ))}
-    </ul>
+  formState.errors.map(
+    error => (
+      <li key={error}>
+        {error}
+      </li>
+    )
   )
 }
 ```
+
+---
+
+## **Preventing Form Reset on Submission**
+
+Currently, when the signup button is clicked, the form submits and resets the input fields, clearing user input even if there are validation errors. To prevent this, we can modify the action function to retain user-entered values when errors are present:
+
+```jsx
+if (errors.length > 0) {
+  return {
+    errors,
+    enteredValues: {
+      email,
+      password,
+      confirmPassword,
+      firstName,
+      lastName,
+      role,
+      acquisitionChannel,
+      terms
+    }
+  };
+}
+```
+
+### **How This Works:**
+- Instead of returning only the errors, we also return an `enteredValues` object containing the current values of the input fields.
+- This ensures that when validation fails, the input values are preserved in the form state.
+
+### **Binding Default Values in JSX:**
+We can now use the stored `enteredValues` from `formState` to pre-fill the input fields:
+
+```jsx
+defaultValue={formState.enteredValues?.email}
+```
+
+For checkboxes and radio buttons, we use `defaultChecked`:
+
+```jsx
+defaultChecked={formState.enteredValues?.acquisitionChannel.includes("google")}
+defaultChecked={formState.enteredValues?.terms}
+```
+
+### **How It All Ties Together:**
+1. **The action function** processes the form submission.
+   - If there are errors, it returns `errors` along with `enteredValues`.
+   - If there are no errors, the form processes normally.
+2. **The `useActionState` hook** maintains the form state.
+   - It initializes with `errors: null`.
+   - If an error occurs, it updates the state to include `enteredValues`.
+3. **The form inputs use `defaultValue` and `defaultChecked`** to persist user input.
+   - This prevents fields from resetting when submission fails.
+
+This approach improves user experience by ensuring that users don’t lose their input if they make a mistake, allowing them to correct errors without re-entering all their information.
 
